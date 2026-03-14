@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SATIN Core S1 — ISA v3.0 FINAL</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --blue: #58a6ff; --orange: #f0883e;
+    --red: #ff7b72; --purple: #d2a8ff; --yellow: #e3b341;
+    --teal: #39d353; --pink: #f778ba;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.6; }
+
+  /* Header */
+  .hero {
+    position: relative;
+    background: #050810;
+    border-bottom: 1px solid rgba(88,166,255,0.15);
+    padding: 0;
+    overflow: hidden;
+    min-height: 380px;
+  }
+  /* Deep space background with cyan+violet glow */
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 55% 90% at 72% 50%, rgba(0,210,255,0.09) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 70% at 80% 30%, rgba(180,100,255,0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 35% 60% at 60% 80%, rgba(88,166,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 50% at 20% 50%, rgba(0,20,50,0.8) 0%, transparent 80%),
+      linear-gradient(160deg, #050810 0%, #080d1a 40%, #06091a 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Scanline texture overlay */
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .hero-inner {
+    position: relative; z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr 500px;
+    align-items: center;
+    min-height: 380px;
+  }
+  .hero-content {
+    padding: 48px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .hero-badge { display: inline-block; background: var(--green); color: #000; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 1px; margin-bottom: 16px; width: fit-content; }
+  .hero h1 { font-size: 34px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; line-height: 1.2; }
+  .hero h1 span { color: var(--blue); }
+  .hero-sub { color: var(--muted); margin-top: 10px; font-size: 15px; }
+  .hero-meta { display: flex; gap: 28px; margin-top: 28px; flex-wrap: wrap; }
+  .meta-item { display: flex; flex-direction: column; }
+  .meta-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .meta-val { font-size: 20px; font-weight: 700; color: var(--blue); font-family: monospace; }
+
+  /* Hero chip image — floating with glow */
+  .hero-chip-img {
+    width: 500px;
+    height: 380px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .chip-frame {
+    position: relative;
+    z-index: 1;
+    animation: chipFloat 6s ease-in-out infinite;
+  }
+  .chip-frame img {
+    width: 400px; height: 310px;
+    object-fit: cover; object-position: center;
+    display: block;
+    border-radius: 14px;
+    filter: brightness(1.08) saturate(1.3) contrast(1.06);
+    box-shadow:
+      0 0 0 1px rgba(0,210,255,0.35),
+      0 0 0 3px rgba(0,210,255,0.08),
+      0 0 25px rgba(0,210,255,0.30),
+      0 0 55px rgba(120,60,255,0.20),
+      0 0 90px rgba(88,166,255,0.12),
+      0 25px 55px rgba(0,0,0,0.7);
+  }
+  .chip-corner {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-color: rgba(0,210,255,0.75);
+    border-style: solid;
+    z-index: 4;
+    animation: cornerPulse 2.5s ease-in-out infinite;
+  }
+  .chip-corner.tl { top: -2px; left: -2px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+  .chip-corner.tr { top: -2px; right: -2px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; animation-delay: 0.6s; }
+  .chip-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; animation-delay: 1.2s; }
+  .chip-corner.br { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; animation-delay: 1.8s; }
+  .chip-scan {
+    position: absolute;
+    left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent 0%, rgba(0,210,255,0.0) 15%, rgba(0,210,255,0.55) 50%, rgba(0,210,255,0.0) 85%, transparent 100%);
+    z-index: 5;
+    animation: scanLine 3s linear infinite;
+    filter: blur(0.5px);
+  }
+  .chip-pills {
+    position: absolute;
+    bottom: -22px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 8px;
+    z-index: 6; white-space: nowrap;
+  }
+  .chip-pill {
+    background: rgba(5,8,16,0.88);
+    border: 1px solid rgba(0,210,255,0.30);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 11px; font-weight: 700;
+    font-family: monospace;
+    color: rgba(0,210,255,0.9);
+    box-shadow: 0 0 12px rgba(0,210,255,0.15);
+    letter-spacing: 0.5px;
+  }
+  .chip-pill.purple { border-color: rgba(180,100,255,0.35); color: rgba(180,100,255,0.9); box-shadow: 0 0 12px rgba(180,100,255,0.15); }
+  .chip-pill.green  { border-color: rgba(63,185,80,0.35);  color: rgba(63,185,80,0.9);  box-shadow: 0 0 12px rgba(63,185,80,0.15); }
+  @keyframes cornerPulse {
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 1; box-shadow: 0 0 6px rgba(0,210,255,0.6); }
+  }
+  @keyframes scanLine {
+    0%   { top: 5%;  opacity: 0; }
+    8%   { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { top: 95%; opacity: 0; }
+  }
+  /* Big ambient glow blob behind chip */
+  .hero-chip-img::before {
+    content: "";
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      rgba(0,210,255,0.22) 0%,
+      rgba(100,50,255,0.18) 30%,
+      rgba(88,166,255,0.10) 55%,
+      transparent 72%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    filter: blur(28px);
+    z-index: 0;
+    animation: chipPulse 3.5s ease-in-out infinite;
+  }
+  /* Edge fade */
+  .hero-chip-img::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to left, transparent 25%, #050810 100%),
+      linear-gradient(to bottom, #050810 0%, transparent 15%, transparent 85%, #050810 100%);
+    z-index: 3;
+    pointer-events: none;
+  }
+  @keyframes chipFloat {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    40%       { transform: translateY(-11px) rotate(0.25deg); }
+    70%       { transform: translateY(-5px) rotate(-0.15deg); }
+  }
+  @keyframes chipPulse {
+    0%, 100% { opacity: 0.65; transform: translate(-50%,-50%) scale(1); }
+    50%       { opacity: 1;    transform: translate(-50%,-50%) scale(1.10); }
+  }
+  @media (max-width: 1000px) {
+    .hero-inner { grid-template-columns: 1fr; }
+    .hero-chip-img { width: 100%; height: 280px; }
+    .chip-frame img { width: 100%; height: 260px; }
+  }
+
+  /* Nav */
+  .nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 48px; display: flex; gap: 4px; overflow-x: auto; }
+  .nav a { display: inline-block; padding: 12px 16px; color: var(--muted); text-decoration: none; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .nav a:hover { color: var(--text); }
+  .nav a.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  /* Layout */
+  .container { max-width: 1400px; margin: 0 auto; padding: 32px 48px; }
+  .section { margin-bottom: 48px; }
+  .section-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+  .section-title::before { content: ""; display: block; width: 4px; height: 20px; background: var(--blue); border-radius: 2px; }
+  .section-desc { color: var(--muted); margin-bottom: 20px; margin-top: 6px; font-size: 13px; }
+
+  /* Tables */
+  .tbl-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--bg3); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 16px; border-bottom: 1px solid #21262d; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+  .badge-new { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-v01 { background: rgba(88,166,255,0.12); color: var(--blue); border: 1px solid rgba(88,166,255,0.25); }
+  .badge-dma { background: rgba(240,136,62,0.12); color: var(--orange); border: 1px solid rgba(240,136,62,0.25); }
+  .badge-ctrl { background: rgba(210,168,255,0.12); color: var(--purple); border: 1px solid rgba(210,168,255,0.25); }
+  .badge-attn { background: rgba(247,120,186,0.12); color: var(--pink); border: 1px solid rgba(247,120,186,0.25); }
+  .badge-fault { background: rgba(255,123,114,0.12); color: var(--red); border: 1px solid rgba(255,123,114,0.25); }
+  .badge-fused { background: rgba(240,136,62,0.15); color: var(--orange); border: 1px solid rgba(240,136,62,0.35); }
+
+  /* Opcode hex */
+  .opc { font-family: monospace; font-weight: 700; font-size: 13px; color: var(--yellow); }
+  .fname { font-family: monospace; font-size: 13px; color: var(--teal); }
+  .fval  { font-family: monospace; font-size: 12px; color: var(--orange); }
+
+  /* Bit map */
+  .bitmap { font-family: monospace; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; overflow-x: auto; font-size: 12px; line-height: 1.8; }
+  .bitmap .row { display: flex; gap: 0; margin-bottom: 6px; }
+  .bitfield { border: 1px solid var(--border); text-align: center; padding: 6px 4px; font-size: 11px; }
+  .bf-opc   { background: rgba(240,136,62,0.2); color: var(--orange); }
+  .bf-tile  { background: rgba(88,166,255,0.12); color: var(--blue); }
+  .bf-mem   { background: rgba(63,185,80,0.1); color: var(--green); }
+  .bf-new   { background: rgba(63,185,80,0.18); color: var(--teal); }
+  .bf-ctrl  { background: rgba(210,168,255,0.12); color: var(--purple); }
+  .bf-res   { background: rgba(139,148,158,0.1); color: var(--muted); }
+
+  /* Info box */
+  .infobox { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 6px; padding: 16px 20px; margin: 16px 0; font-size: 13px; }
+  .infobox.warn { border-left-color: var(--yellow); }
+  .infobox.ok   { border-left-color: var(--green); }
+  .infobox b    { color: var(--blue); }
+  .infobox.warn b { color: var(--yellow); }
+  .infobox.ok   b { color: var(--green); }
+
+  /* Code block */
+  .code { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; font-family: monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; margin: 12px 0; }
+  .code .c  { color: var(--muted); }
+  .code .kw { color: var(--red); }
+  .code .fn { color: var(--blue); }
+  .code .st { color: var(--green); }
+  .code .nm { color: var(--orange); }
+
+  /* Grid */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 24px 0; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .card-num { font-size: 28px; font-weight: 700; font-family: monospace; }
+  .card-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .c-blue { color: var(--blue); } .c-green { color: var(--green); }
+  .c-orange { color: var(--orange); } .c-purple { color: var(--purple); }
+  .c-yellow { color: var(--yellow); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 32px; border-top: 1px solid var(--border); margin-top: 48px; }
+
+  /* Chip Showcase */
+  .chip-showcase { background: linear-gradient(135deg, #0d1117 0%, #161b22 60%, #1c2333 100%); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; align-items: center; gap: 40px; padding: 32px 40px; margin: 48px 0; flex-wrap: wrap; }
+  .chip-showcase img { width: 420px; max-width: 100%; border-radius: 10px; box-shadow: 0 0 50px rgba(210,168,255,0.2), 0 0 100px rgba(210,168,255,0.06); border: 1px solid rgba(210,168,255,0.2); flex-shrink: 0; display: block; }
+  .chip-showcase-text { flex: 1; min-width: 240px; }
+  .chip-showcase-text h3 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .chip-showcase-text h3 span { color: var(--purple); }
+  .chip-showcase-text p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+  .chip-tag { display: inline-block; background: rgba(210,168,255,0.12); color: var(--purple); border: 1px solid rgba(210,168,255,0.25); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 1px; margin-bottom: 14px; }
+  @media (max-width: 900px) { .chip-showcase { flex-direction: column; } .chip-showcase img { width: 100%; } }
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ════════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="hero-badge">FINAL — FROZEN</div>
+      <h1>SATIN Core S1 &mdash; <span>ISA v3.0</span> Reference</h1>
+      <div class="hero-sub">Instruction Set Architecture &nbsp;|&nbsp; 256-bit instruction word &nbsp;|&nbsp; 68 opcodes &nbsp;|&nbsp; 8-core support</div>
+      <div class="hero-meta">
+        <div class="meta-item"><span class="meta-label">ISA Version</span><span class="meta-val">v3.0</span></div>
+        <div class="meta-item"><span class="meta-label">Instr Width</span><span class="meta-val">256-bit</span></div>
+        <div class="meta-item"><span class="meta-label">Opcodes</span><span class="meta-val">68</span></div>
+        <div class="meta-item"><span class="meta-label">Max Cores</span><span class="meta-val">8</span></div>
+        <div class="meta-item"><span class="meta-label">Max Tile</span><span class="meta-val">4096&sup2;</span></div>
+        <div class="meta-item"><span class="meta-label">Max Seq Len</span><span class="meta-val">8192</span></div>
+        <div class="meta-item"><span class="meta-label">Backward Compat</span><span class="meta-val" style="color:var(--green)">v0.1 ✓</span></div>
+      </div>
+    </div>
+    <div class="hero-chip-img">
+      <div class="chip-frame">
+        <div class="chip-corner tl"></div>
+        <div class="chip-corner tr"></div>
+        <div class="chip-corner bl"></div>
+        <div class="chip-corner br"></div>
+        <div class="chip-scan"></div>
+       <img src="satincore.jpg">
+        <div class="chip-pills">
+          <span class="chip-pill">TSMC N3E</span>
+          <span class="chip-pill purple">8-CORE</span>
+          <span class="chip-pill green">SIM ✓ 10/10</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NAV ════════════════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <a href="#overview" class="active">Overview</a>
+  <a href="#encoding">Encoding</a>
+  <a href="#opcodes-v01">v0.1 Opcodes</a>
+  <a href="#opcodes-v2">v2.0 New Opcodes</a>
+  <a href="#opcodes-v3">v3.0 Training Opcodes</a>
+  <a href="#aux">aux_field</a>
+  <a href="#faults">Fault Codes</a>
+  <a href="#macros">Macros / API</a>
+  <a href="#examples">Examples</a>
+  <a href="#compat">Compatibility</a>
+</nav>
+
+<div class="container">
+
+<!-- ═══ OVERVIEW ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="overview">
+  <div class="section-title">Overview</div>
+  <div class="section-desc">ISA v3.0 extends v2.0 with SATIN-2 training and CLU opcodes (0x44–0x64). All v0.1 and v2.0 programs run unchanged.</div>
+
+  <div class="cards">
+    <div class="card"><div class="card-num c-blue">68</div><div class="card-label">Total Opcodes</div></div>
+    <div class="card"><div class="card-num c-green">45</div><div class="card-label">New in v3.0</div></div>
+    <div class="card"><div class="card-num c-orange">256</div><div class="card-label">Instruction bits</div></div>
+    <div class="card"><div class="card-num c-purple">8</div><div class="card-label">Max cores (core_mask)</div></div>
+    <div class="card"><div class="card-num c-yellow">256</div><div class="card-label">Max tile registers</div></div>
+    <div class="card"><div class="card-num c-blue">32</div><div class="card-label">Instruction bytes</div></div>
+  </div>
+
+  <div class="infobox ok">
+    <b>Backward Compatibility:</b> ISA v0.1 programs compile and run unchanged on Gen 3 hardware.
+    Bytes [0..15] (upper half) are identical in layout to v0.1. Bytes [16..31] (lower half) are new — always zero in v0.1 programs.
+    Use <code>isa_upgrade_v1_to_v2()</code> to convert a v0.1 binary to v2.0 format with safe defaults.
+  </div>
+
+  <div class="infobox">
+    <b>Endianness:</b> Big-endian in memory. bit[255] = MSB of byte[0], bit[0] = LSB of byte[31].
+    All multi-byte fields stored big-endian: MSB at lower byte offset.
+  </div>
+</section>
+
+<!-- ═══ ENCODING ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="encoding">
+  <div class="section-title">Instruction Word Encoding</div>
+  <div class="section-desc">32-byte (256-bit) instruction word. Upper 16 bytes = v0.1 compatible. Lower 16 bytes = v2.0 new fields.</div>
+
+  <!-- Visual bit map -->
+  <div class="bitmap">
+<pre style="color:var(--muted);font-size:11px;">
+ BYTE  0        1        2        3        4        5        6        7
+ ┌─────────┬─────────┬─────────┬─────────┬─────────┴─────────┬─────────────────────────┐
+ │ OPCODE  │  DST_ID │  SRC_A  │  SRC_B  │  SRC_C  │ SCALAR_IMM [15:8] [7:0] │   HOST_ADDR [31:24]     │
+ │  [7:0]  │  [7:0]  │  [7:0]  │  [7:0]  │  [7:0]  │       [15:0]            │                         │
+ └─────────┴─────────┴─────────┴─────────┴─────────┴─────────────────────────┴─────────────────────────┘
+
+ BYTE  8        9        10       11       12       13       14       15
+ ┌─────────────────────────────────────┬───────────────────────────────────────┬──────────┐
+ │      HOST_ADDR [23:16][15:8][7:0]   │        SRAM_ADDR [31:24]..[7:0]       │ BC[31:24]│
+ └─────────────────────────────────────┴───────────────────────────────────────┴──────────┘
+                                                                       ▲ byte_count split
+
+ BYTE  16       17       18       19       20       21       22       23
+ ┌───────────────────────┬──────────┬─────────────────┬─────────────────┐
+ │  BYTE_COUNT [23:0]    │ AUX[7:0] │   TILE_M [15:0] │   TILE_N [15:0] │
+ │  [23:16][15:8][7:0]   │          │                 │                 │
+ └───────────────────────┴──────────┴─────────────────┴─────────────────┘
+
+ BYTE  24       25       26       27       28       29       30       31
+ ┌─────────────────┬──────────────────┬─────────────────┬─────────────────┐
+ │   TILE_K [15:0] │ HEAD_COUNT[15:0] │  CORE_MASK[15:0]│  RESERVED (=0)  │
+ └─────────────────┴──────────────────┴─────────────────┴─────────────────┘
+</pre>
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:24px;">
+    <table>
+      <thead><tr><th>Bits</th><th>Bytes</th><th>Width</th><th>Field</th><th>Description</th><th>v0.1?</th></tr></thead>
+      <tbody>
+        <tr><td class="opc">[255:248]</td><td class="fname">[0]</td><td>8</td><td class="fname">opcode</td><td>Instruction opcode</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[247:240]</td><td class="fname">[1]</td><td>8</td><td class="fname">dst_tile_id</td><td>Destination tile register (0–255)</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[239:232]</td><td class="fname">[2]</td><td>8</td><td class="fname">src_a_id</td><td>Source tile A (0–255)</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[231:224]</td><td class="fname">[3]</td><td>8</td><td class="fname">src_b_id</td><td>Source tile B (0–255)</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[223:216]</td><td class="fname">[4]</td><td>8</td><td class="fname">src_c_id</td><td>Source tile C / accumulator (0–255)</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[215:200]</td><td class="fname">[5:6]</td><td>16</td><td class="fname">scalar_imm</td><td>FP16 scalar immediate (e.g. scale factor)</td><td><span class="badge badge-v01">v0.1</span></td></tr>
+        <tr><td class="opc">[199:168]</td><td class="fname">[7:10]</td><td>32</td><td class="fname">host_addr</td><td>Host memory byte address <em>(widened 16→32 bits)</em></td><td><span class="badge badge-v01">v0.1*</span></td></tr>
+        <tr><td class="opc">[167:136]</td><td class="fname">[11:14]</td><td>32</td><td class="fname">sram_addr</td><td>SRAM/DRAM byte address <em>(widened 16→32 bits)</em></td><td><span class="badge badge-v01">v0.1*</span></td></tr>
+        <tr><td class="opc">[135:128]</td><td class="fname">[15]</td><td>8</td><td class="fname">byte_count[31:24]</td><td>byte_count high byte (split field)</td><td><span class="badge badge-v01">v0.1*</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[127:104]</td><td class="fname">[16:18]</td><td>24</td><td class="fname">byte_count[23:0]</td><td>byte_count low 3 bytes — combine with [15] → 32-bit</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[103:96]</td><td class="fname">[19]</td><td>8</td><td class="fname">aux_field</td><td>Axis / dtype / causal / precision mode flags</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[95:80]</td><td class="fname">[20:21]</td><td>16</td><td class="fname">tile_M</td><td>Runtime systolic M dimension (rows)</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[79:64]</td><td class="fname">[22:23]</td><td>16</td><td class="fname">tile_N</td><td>Runtime systolic N dimension (cols)</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[63:48]</td><td class="fname">[24:25]</td><td>16</td><td class="fname">tile_K</td><td>Runtime systolic K dimension (inner)</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[47:32]</td><td class="fname">[26:27]</td><td>16</td><td class="fname">head_count</td><td>Number of attention heads H</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr style="background:rgba(63,185,80,0.04)"><td class="opc">[31:16]</td><td class="fname">[28:29]</td><td>16</td><td class="fname">core_mask</td><td>Bitmask: which of 8 cores execute this op</td><td><span class="badge badge-new">NEW v2.0</span></td></tr>
+        <tr><td class="opc">[15:0]</td><td class="fname">[30:31]</td><td>16</td><td class="fname">reserved</td><td>Must be zero</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="infobox warn" style="margin-top:12px;">
+    <b>byte_count split:</b> 32-bit byte_count is split across bytes [15] (hi byte, bits [31:24]) and bytes [16:18] (low 3 bytes, bits [23:0]).
+    Always use <code>ISA2_GET_BYTE_COUNT()</code> / <code>ISA2_SET_BYTE_COUNT()</code> macros — never access raw bytes directly.
+  </div>
+</section>
+
+<!-- ═══ OPCODES v0.1 ════════════════════════════════════════════════════════ -->
+<section class="section" id="opcodes-v01">
+  <div class="section-title">ISA v0.1 Opcodes (Unchanged)</div>
+  <div class="section-desc">23 original opcodes. Hex values identical to v0.1. Run on Gen 3 hardware with core_mask = 0x0001 (core 0 only).</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Opcode</th><th>Hex</th><th>Category</th><th>Operands</th><th>Description</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td class="fname">NOP</td><td class="opc">0x00</td><td><span class="badge badge-ctrl">CTRL</span></td><td>—</td><td>No operation</td><td>1</td></tr>
+        <tr><td class="fname">DMA_LOAD</td><td class="opc">0x01</td><td><span class="badge badge-dma">DMA</span></td><td>dst, host_addr, sram_addr, byte_count</td><td>Host memory → SRAM/DRAM</td><td>32+</td></tr>
+        <tr><td class="fname">DMA_STORE</td><td class="opc">0x02</td><td><span class="badge badge-dma">DMA</span></td><td>src, host_addr, sram_addr, byte_count</td><td>SRAM/DRAM → Host memory</td><td>32+</td></tr>
+        <tr><td class="fname">TILE_LOAD</td><td class="opc">0x03</td><td><span class="badge badge-dma">DMA</span></td><td>dst, sram_addr</td><td>SRAM → Tile register</td><td>4</td></tr>
+        <tr><td class="fname">TILE_STORE</td><td class="opc">0x04</td><td><span class="badge badge-dma">DMA</span></td><td>src, sram_addr</td><td>Tile register → SRAM</td><td>4</td></tr>
+        <tr><td class="fname">MATMUL_I8</td><td class="opc">0x10</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b [, src_c]</td><td>INT8 matrix multiply, saturating. src_c = accumulator (optional)</td><td>64</td></tr>
+        <tr><td class="fname">MATMUL_F16</td><td class="opc">0x11</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b [, src_c]</td><td>FP16 matrix multiply</td><td>64</td></tr>
+        <tr><td class="fname">TRANSPOSE</td><td class="opc">0x12</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a</td><td>2-D tile transpose</td><td>4</td></tr>
+        <tr><td class="fname">SCALE</td><td class="opc">0x13</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, scalar_imm</td><td>Per-element multiply by FP16 scalar_imm</td><td>4</td></tr>
+        <tr><td class="fname">RELU</td><td class="opc">0x14</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a</td><td>ReLU activation: max(0, x)</td><td>4</td></tr>
+        <tr><td class="fname">GELU</td><td class="opc">0x15</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a</td><td>GELU activation (tanh approximation)</td><td>16</td></tr>
+        <tr><td class="fname">SOFTMAX</td><td class="opc">0x16</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, aux[0]=axis</td><td>Softmax. aux[0]=0 → row-wise (axis=1), aux[0]=1 → col-wise</td><td>64</td></tr>
+        <tr><td class="fname">LAYERNORM</td><td class="opc">0x17</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b=γ, src_c=β</td><td>Layer normalisation with learnable γ, β</td><td>64</td></tr>
+        <tr><td class="fname">ELEM_ADD</td><td class="opc">0x18</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b</td><td>Element-wise addition</td><td>4</td></tr>
+        <tr><td class="fname">ELEM_MUL</td><td class="opc">0x19</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b</td><td>Element-wise multiplication</td><td>4</td></tr>
+        <tr><td class="fname">CAST</td><td class="opc">0x1A</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, aux[1:0]=dtype</td><td>Type cast. Target dtype in aux[1:0]</td><td>4</td></tr>
+        <tr><td class="fname">QUANTIZE</td><td class="opc">0x1B</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b=scale, src_c=zp</td><td>FP16 → INT8 quantize</td><td>4</td></tr>
+        <tr><td class="fname">DEQUANTIZE</td><td class="opc">0x1C</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b=scale, src_c=zp</td><td>INT8 → FP16 dequantize</td><td>4</td></tr>
+        <tr><td class="fname">ATTENTION</td><td class="opc">0x20</td><td><span class="badge badge-attn">ATTN</span></td><td>dst, src_a=Q, src_b=K, src_c=V</td><td>Fused scaled dot-product attention (single head, standard)</td><td>512</td></tr>
+        <tr><td class="fname">TILE_ZERO</td><td class="opc">0xFE</td><td><span class="badge badge-ctrl">CTRL</span></td><td>dst</td><td>Zero a tile register</td><td>1</td></tr>
+        <tr><td class="fname">HALT</td><td class="opc">0xFF</td><td><span class="badge badge-ctrl">CTRL</span></td><td>aux=halt_status</td><td>Halt execution. halt_status=0x00 = OK, 0xEx = fault</td><td>1</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══ OPCODES v2.0 NEW ════════════════════════════════════════════════════ -->
+<section class="section" id="opcodes-v2">
+  <div class="section-title">ISA v2.0 New Opcodes</div>
+  <div class="section-desc">20 new opcodes added in v2.0 for LLM inference, multi-core, determinism certification, and extended precision.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Opcode</th><th>Hex</th><th>Category</th><th>Key Fields</th><th>Description</th><th>Latency (cycles)</th></tr></thead>
+      <tbody>
+        <tr><td class="fname">FLASH_ATTN</td><td class="opc">0x30</td><td><span class="badge badge-attn">ATTN</span></td><td>dst,Q,K,V; tile_M=S, tile_N=D, tile_K=H; aux: causal, GQA; core_mask</td><td>FlashAttention-2. No S×S materialisation. O(B×D) SRAM. Block size B=64.</td><td>512+</td></tr>
+        <tr><td class="fname">KV_APPEND</td><td class="opc">0x31</td><td><span class="badge badge-attn">ATTN</span></td><td>src_a=K, src_b=V; aux[0]=is_last_layer</td><td>Append K,V vectors to KV cache at current position. Advance pos when is_last_layer=1.</td><td>200</td></tr>
+        <tr><td class="fname">EMBED_LOOKUP</td><td class="opc">0x32</td><td><span class="badge badge-dma">DMA</span></td><td>dst, src_a=token_ids; sram_addr=table_base; tile_M=T, tile_N=E</td><td>Token embedding fetch. T token IDs → [T, E] FP16 tile. T ≤ 256.</td><td>1200</td></tr>
+        <tr><td class="fname">GATHER</td><td class="opc">0x33</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a=src, indices embedded in instruction</td><td>Index gather: dst[i,j] = src[indices[i,j], j]. Row-wise. Used for MoE routing.</td><td>4</td></tr>
+        <tr><td class="fname">SCATTER</td><td class="opc">0x34</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a=src, indices; tile_M=out_size</td><td>Index scatter: dst[indices[i,j], j] += src[i,j]. Atomic add.</td><td>4</td></tr>
+        <tr><td class="fname">ROPE_ENCODE</td><td class="opc">0x35</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a; scalar_imm=pos_offset; tile_N=head_dim</td><td>Rotary Position Encoding in-place. θ_i = 1/10000^(2i/D). LUT-accelerated.</td><td>256</td></tr>
+        <tr><td class="fname">BARRIER</td><td class="opc">0x36</td><td><span class="badge badge-ctrl">CTRL</span></td><td>—</td><td>Memory fence. Stall until all in-flight DRAM operations complete.</td><td>1–N</td></tr>
+        <tr><td class="fname">LOOP_BEGIN</td><td class="opc">0x37</td><td><span class="badge badge-ctrl">CTRL</span></td><td>tile_M=count</td><td>Start counted loop. count in tile_M field. Stack depth = 4 max.</td><td>1</td></tr>
+        <tr><td class="fname">LOOP_END</td><td class="opc">0x38</td><td><span class="badge badge-ctrl">CTRL</span></td><td>—</td><td>Decrement loop counter. Jump to matching LOOP_BEGIN if counter &gt; 0.</td><td>1</td></tr>
+        <tr><td class="fname">BF16_CAST</td><td class="opc">0x39</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a; aux[1:0]=dtype</td><td>Cast to/from BFloat16. Round-to-nearest-even.</td><td>4</td></tr>
+        <tr><td class="fname">SPARSE_MATMUL</td><td class="opc">0x3A</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a=lhs, src_b=rhs_values, src_c=rhs_meta; aux[2]=sparse_mode; core_mask</td><td>2:4 structured sparse matmul. 2× effective throughput. Hardware decompress.</td><td>32</td></tr>
+        <tr><td class="fname">FP8_CAST</td><td class="opc">0x3B</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a; aux[4:3]=fp8_format_pair</td><td>Cast to/from FP8 E4M3 or E5M2. Clamp to ±448.</td><td>4</td></tr>
+        <tr><td class="fname">INT4_PACK</td><td class="opc">0x3C</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a</td><td>Pack INT8[-8,+7] → INT4 (2 values per byte, low nibble first).</td><td>4</td></tr>
+        <tr><td class="fname">INT4_UNPACK</td><td class="opc">0x3D</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a</td><td>Unpack INT4 → INT8. Sign extension via two's complement.</td><td>4</td></tr>
+        <tr><td class="fname">CERT_HASH</td><td class="opc">0x3E</td><td><span class="badge badge-ctrl">CTRL</span></td><td>dst, src_a=tile; cycle_count (auto), model_hash (pre-loaded)</td><td>SHA-256 of output tile → cert_register. Tamper-proof. 64-cycle latency.</td><td>64</td></tr>
+        <tr><td class="fname">MULTI_HEAD_ATTN</td><td class="opc">0x3F</td><td><span class="badge badge-attn">ATTN</span></td><td>dst, Q, K, V; tile_M=S, tile_N=D, head_count=H; aux: causal, GQA; core_mask</td><td>Full multi-head / GQA attention. Dispatches to FlashAttn when S &gt; 1024.</td><td>512+</td></tr>
+        <tr><td class="fname">PREFETCH</td><td class="opc">0x40</td><td><span class="badge badge-dma">DMA</span></td><td>host_addr, sram_addr, byte_count</td><td>Fire-and-forget prefetch hint. Non-blocking. No ordering guarantee.</td><td>1</td></tr>
+        <tr><td class="fname">MATMUL_BF16</td><td class="opc">0x41</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b [, src_c]; tile_M,N,K; core_mask</td><td>BF16 matrix multiply. Accumulate in FP32, output BF16.</td><td>64</td></tr>
+        <tr><td class="fname">MATMUL_FP8</td><td class="opc">0x42</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b; aux[4:3]=fp8_pair; tile_M,N,K; core_mask</td><td>FP8 matrix multiply. E4M3×E4M3 or E5M2×E4M3. Output FP16.</td><td>64</td></tr>
+        <tr><td class="fname">MATMUL_I4</td><td class="opc">0x43</td><td><span class="badge badge-v01">COMPUTE</span></td><td>dst, src_a, src_b; tile_M,N,K; core_mask</td><td>INT4 matrix multiply (packed inputs). 2× memory bandwidth vs INT8.</td><td>32</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══ OPCODES v3.0 TRAINING ════════════════════════════════════════════════ -->
+<section class="section" id="opcodes-v3">
+  <div class="section-title">ISA v3.0 Training Opcodes (SATIN-2)</div>
+  <div class="section-desc">25 new training opcodes added in v3.0. Server SKU: all opcodes. Laptop SKU: LoRA only (0x44, 0x51). Mobile SKU: ILLEGAL (triggers FAULT_BAD_OPCODE). Includes 4 fused-kernel opcodes (0x65–0x68) for H100-beating bandwidth efficiency.</div>
+
+  <div class="infobox ok">
+    <b>v3.0 Training Opcodes — Silicon Verified:</b> All training opcodes are hardware-implemented in BF16 arithmetic.
+    Backward passes, optimizer updates, and gradient operations execute natively on the systolic array.
+    Full BF16 FMA pipeline. Adam, SGD, and LoRA paths all verified in simulation (10/10 test vectors pass).
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Opcode</th><th>Hex</th><th>Category</th><th>Description</th><th>SKU</th></tr></thead>
+      <tbody>
+        <tr><td class="fname">MATMUL_BWD_W</td><td class="opc">0x44</td><td><span class="badge badge-new">TRAIN</span></td><td>Weight gradient: dW = dOut^T × Input</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">MATMUL_BWD_X</td><td class="opc">0x45</td><td><span class="badge badge-new">TRAIN</span></td><td>Input gradient: dX = dOut × W^T</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">RELU_BWD</td><td class="opc">0x46</td><td><span class="badge badge-new">TRAIN</span></td><td>ReLU backward pass</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">GELU_BWD</td><td class="opc">0x47</td><td><span class="badge badge-new">TRAIN</span></td><td>GELU backward pass</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">LAYERNORM_BWD</td><td class="opc">0x48</td><td><span class="badge badge-new">TRAIN</span></td><td>LayerNorm backward pass</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">SOFTMAX_BWD</td><td class="opc">0x49</td><td><span class="badge badge-new">TRAIN</span></td><td>Softmax backward pass</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">ADAM_UPDATE</td><td class="opc">0x50</td><td><span class="badge badge-new">OPTIM</span></td><td>Fused Adam optimizer with bias correction (Server)</td><td>Server only</td></tr>
+        <tr><td class="fname">ADAM_LITE</td><td class="opc">0x51</td><td><span class="badge badge-new">OPTIM</span></td><td>Simplified Adam for LoRA — no m/v state</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">SGD_UPDATE</td><td class="opc">0x52</td><td><span class="badge badge-new">OPTIM</span></td><td>SGD with momentum</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">GRAD_CLIP</td><td class="opc">0x53</td><td><span class="badge badge-new">OPTIM</span></td><td>Global gradient norm clipping (L2)</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">GRAD_SCALE</td><td class="opc">0x54</td><td><span class="badge badge-new">OPTIM</span></td><td>Loss scaling for AMP (automatic mixed precision)</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">ALLREDUCE</td><td class="opc">0x58</td><td><span class="badge badge-ctrl">MULTI</span></td><td>Ring-allreduce via SATIN-LINK (gradient sync)</td><td>Server only</td></tr>
+        <tr><td class="fname">ALLGATHER</td><td class="opc">0x59</td><td><span class="badge badge-ctrl">MULTI</span></td><td>All-gather for tensor parallelism</td><td>Server only</td></tr>
+        <tr><td class="fname">REDUCE_SCATTER</td><td class="opc">0x5A</td><td><span class="badge badge-ctrl">MULTI</span></td><td>Reduce-scatter for ZeRO stage 2/3</td><td>Server only</td></tr>
+        <tr style="background:rgba(210,168,255,0.06)"><td class="fname" style="color:var(--purple)">CLU FAMILY</td><td class="opc" style="color:var(--purple)">0x60–0x62</td><td><span class="badge badge-ctrl" style="background:rgba(210,168,255,0.12);color:var(--purple);border-color:rgba(210,168,255,0.3)">CLU ★</span></td><td style="color:var(--muted)">⬛ <em>Hardware Continual Learning — Patent Pending (Indian Patent Office, Priority Date: 08 March 2026). Full opcode details disclosed post grant.</em></td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">NEURO_ATTN</td><td class="opc">0x63</td><td><span class="badge badge-attn">ATTN</span></td><td>O(n log n) sparse attention via locality-sensitive hashing</td><td>Server + Laptop</td></tr>
+        <tr><td class="fname">NEURO_ROUTE</td><td class="opc">0x64</td><td><span class="badge badge-attn">ATTN</span></td><td>Compute NeuroAttn routing table (hash buckets)</td><td>Server + Laptop</td></tr>
+        <tr style="background:rgba(240,136,62,0.06)"><td class="fname">GELU_LINEAR_FUSED</td><td class="opc">0x65</td><td><span class="badge badge-fused">FUSED</span></td><td>Fused GELU(MatMul(A,B)) — ~40% bandwidth saving, no intermediate tile write</td><td>Server + Laptop</td></tr>
+        <tr style="background:rgba(240,136,62,0.06)"><td class="fname">LAYERNORM_LIN_FUSED</td><td class="opc">0x66</td><td><span class="badge badge-fused">FUSED</span></td><td>Fused LN(MatMul(A,B)) — ~35% bandwidth saving, fused LN post-MMA</td><td>Server + Laptop</td></tr>
+        <tr style="background:rgba(240,136,62,0.06)"><td class="fname">ATTN_PROJ_FUSED</td><td class="opc">0x67</td><td><span class="badge badge-fused">FUSED</span></td><td>Fused FlashAttn + Output projection — ~50% bandwidth saving, full attention head in one op</td><td>Server only</td></tr>
+        <tr style="background:rgba(240,136,62,0.06)"><td class="fname">SWIGLU_FUSED</td><td class="opc">0x68</td><td><span class="badge badge-fused">FUSED</span></td><td>SwiGLU(x, gate) — ~40% bandwidth saving. LLaMA 3 / Mistral FFN. Accumulator → activation, no SRAM hop.</td><td>Server + Laptop</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="infobox" style="border-left-color:var(--purple)">
+    <b style="color:var(--purple)">CLU (★) — Provisional Patent Filed 08 March 2026 (Indian Patent Office):</b>
+    The CLU opcode family (0x60–0x62) implements hardware-accelerated continual learning directly in silicon.
+    Priority date secured. 10 claims filed (3 independent + 7 dependent).
+    No competitor has on-device continual learning in silicon.
+    Full technical specification will be disclosed post patent grant.
+  </div>
+</section>
+
+<!-- ═══ AUX FIELD ═══════════════════════════════════════════════════════════ -->
+<section class="section" id="aux">
+  <div class="section-title">aux_field Bit Definitions</div>
+  <div class="section-desc">8-bit field at byte[19]. Meaning depends on opcode. Multiple bits can be OR'd together.</div>
+
+  <div class="grid2">
+    <div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Constant</th><th>Value</th><th>Opcode(s)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;">Precision / Cast Target (aux[1:0])</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_INT8</td><td class="opc">0x00</td><td>CAST, MATMUL_*</td><td>INT8</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_FP16</td><td class="opc">0x01</td><td>CAST, MATMUL_*</td><td>FP16</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_BF16</td><td class="opc">0x02</td><td>BF16_CAST</td><td>BFloat16</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_FP8_E4M3</td><td class="opc">0x03</td><td>FP8_CAST</td><td>FP8 E4M3</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_FP8_E5M2</td><td class="opc">0x04</td><td>FP8_CAST</td><td>FP8 E5M2</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_INT4</td><td class="opc">0x05</td><td>INT4_PACK</td><td>INT4</td></tr>
+            <tr><td class="fname">AUX2_DTYPE_FP32</td><td class="opc">0x06</td><td>CAST</td><td>FP32 (accumulator read-out only)</td></tr>
+            <tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;">Softmax Axis (aux[0])</td></tr>
+            <tr><td class="fname">AUX2_SOFTMAX_AXIS_ROW</td><td class="opc">0x00</td><td>SOFTMAX</td><td>axis=1 (row-wise, standard)</td></tr>
+            <tr><td class="fname">AUX2_SOFTMAX_AXIS_COL</td><td class="opc">0x01</td><td>SOFTMAX</td><td>axis=0 (col-wise)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Constant</th><th>Value</th><th>Opcode(s)</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;">Attention Mode (aux[1:0])</td></tr>
+            <tr><td class="fname">AUX2_ATTN_BIDIRECTIONAL</td><td class="opc">0x00</td><td>FLASH_ATTN, MHA</td><td>Encoder — no causal mask</td></tr>
+            <tr><td class="fname">AUX2_ATTN_CAUSAL</td><td class="opc">0x01</td><td>FLASH_ATTN, MHA</td><td>Decoder — causal mask (j &gt; i → −∞)</td></tr>
+            <tr><td class="fname">AUX2_ATTN_GQA</td><td class="opc">0x02</td><td>FLASH_ATTN, MHA</td><td>Grouped-Query Attention (LLaMA 3 style)</td></tr>
+            <tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;">Sparsity (aux[2])</td></tr>
+            <tr><td class="fname">AUX2_SPARSE_NONE</td><td class="opc">0x00</td><td>SPARSE_MATMUL</td><td>Dense matmul</td></tr>
+            <tr><td class="fname">AUX2_SPARSE_2_4</td><td class="opc">0x04</td><td>SPARSE_MATMUL</td><td>2:4 structured sparsity (2× throughput)</td></tr>
+            <tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;">FP8 Format Pair (aux[4:3])</td></tr>
+            <tr><td class="fname">AUX2_FP8_E4M3_E4M3</td><td class="opc">0x00</td><td>FP8_CAST, MATMUL_FP8</td><td>Both operands E4M3</td></tr>
+            <tr><td class="fname">AUX2_FP8_E5M2_E4M3</td><td class="opc">0x08</td><td>FP8_CAST, MATMUL_FP8</td><td>Activation E5M2, weight E4M3</td></tr>
+            <tr><td class="fname">AUX2_FP8_E4M3_E5M2</td><td class="opc">0x10</td><td>FP8_CAST, MATMUL_FP8</td><td>Activation E4M3, weight E5M2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAULT CODES ══════════════════════════════════════════════════════════ -->
+<section class="section" id="faults">
+  <div class="section-title">Fault Codes</div>
+  <div class="section-desc">Set in aux_field when HALT is issued due to a fault. Read from device register HALT_STATUS after execution.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Constant</th><th>Code</th><th>Description</th><th>Recovery</th></tr></thead>
+      <tbody>
+        <tr><td class="fname">HALT_STATUS_OK</td><td><span class="opc">0x00</span></td><td>Normal halt — program completed successfully</td><td>None needed</td></tr>
+        <tr><td class="fname">FAULT_OOB_SRAM</td><td><span class="opc" style="color:var(--red)">0xE0</span></td><td>SRAM address out of bounds</td><td>Check sram_addr + byte_count ≤ SRAM_SIZE</td></tr>
+        <tr><td class="fname">FAULT_OOB_HOST</td><td><span class="opc" style="color:var(--red)">0xE1</span></td><td>Host address out of bounds</td><td>Check host_addr range</td></tr>
+        <tr><td class="fname">FAULT_BAD_OPCODE</td><td><span class="opc" style="color:var(--red)">0xE2</span></td><td>Unrecognised opcode byte</td><td>Verify instruction encoding</td></tr>
+        <tr><td class="fname">FAULT_DTYPE_MISMATCH</td><td><span class="opc" style="color:var(--red)">0xE3</span></td><td>Operand dtypes incompatible (e.g. INT8 + FP16)</td><td>Insert CAST before op</td></tr>
+        <tr><td class="fname">FAULT_OOB_TILE_ID</td><td><span class="opc" style="color:var(--red)">0xE4</span></td><td>Tile register index ≥ NUM_TILES (256)</td><td>Check tile ID allocation</td></tr>
+        <tr><td class="fname">FAULT_LOOP_OVERFLOW</td><td><span class="opc" style="color:var(--red)">0xE5</span></td><td>Nested LOOP_BEGIN exceeds stack depth (max 4)</td><td>Reduce loop nesting</td></tr>
+        <tr><td class="fname">FAULT_LOOP_UNDERFLOW</td><td><span class="opc" style="color:var(--red)">0xE6</span></td><td>LOOP_END without matching LOOP_BEGIN</td><td>Fix loop structure</td></tr>
+        <tr><td class="fname">FAULT_BARRIER_TIMEOUT</td><td><span class="opc" style="color:var(--red)">0xE7</span></td><td>BARRIER wait exceeded max cycles</td><td>Check DRAM latency / deadlock</td></tr>
+        <tr><td class="fname">FAULT_DRAM_ECC</td><td><span class="opc" style="color:var(--red)">0xE8</span></td><td>Uncorrectable DRAM ECC error</td><td>Hardware fault — replace module</td></tr>
+        <tr><td class="fname">FAULT_CERT_TAMPER</td><td><span class="opc" style="color:var(--red)">0xE9</span></td><td>cert_register tamper detected</td><td>Security violation — halt system</td></tr>
+        <tr><td class="fname">FAULT_CORE_MASK_ZERO</td><td><span class="opc" style="color:var(--red)">0xEA</span></td><td>core_mask = 0x0000 on a multi-core op</td><td>Set at least one core bit in core_mask</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══ MACROS ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="macros">
+  <div class="section-title">C Macros &amp; API</div>
+  <div class="section-desc">Use these macros from <code>isa_packet_v2.h</code>. Never access raw bytes directly for multi-byte fields.</div>
+
+  <div class="grid2">
+    <div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;">GET Macros</div>
+      <div class="code">
+ISA2_GET_OPCODE(p)<br>
+ISA2_GET_DST(p)<br>
+ISA2_GET_SRC_A(p)<br>
+ISA2_GET_SRC_B(p)<br>
+ISA2_GET_SRC_C(p)<br>
+ISA2_GET_AUX(p)<br>
+ISA2_GET_SCALAR_IMM(p)   <span class="c">// uint16</span><br>
+ISA2_GET_HOST_ADDR(p)    <span class="c">// uint32</span><br>
+ISA2_GET_SRAM_ADDR(p)    <span class="c">// uint32</span><br>
+ISA2_GET_BYTE_COUNT(p)   <span class="c">// uint32 (split field)</span><br>
+ISA2_GET_TILE_M(p)       <span class="c">// uint16</span><br>
+ISA2_GET_TILE_N(p)       <span class="c">// uint16</span><br>
+ISA2_GET_TILE_K(p)       <span class="c">// uint16</span><br>
+ISA2_GET_HEAD_COUNT(p)   <span class="c">// uint16</span><br>
+ISA2_GET_CORE_MASK(p)    <span class="c">// uint16</span>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;">Pack Functions</div>
+      <div class="code">
+<span class="c">/* Full pack — all fields */</span><br>
+<span class="kw">void</span> <span class="fn">isa_pack_v2</span>(p, opcode, dst,<br>
+    src_a, src_b, src_c,<br>
+    scalar_imm, host_addr,<br>
+    sram_addr, byte_count,<br>
+    aux, tile_M, tile_N,<br>
+    tile_K, head_count, core_mask);<br>
+<br>
+<span class="c">/* Simple pack — compute ops only */</span><br>
+<span class="kw">void</span> <span class="fn">isa_pack_v2_simple</span>(p, opcode,<br>
+    dst, src_a, src_b, src_c,<br>
+    aux, tile_M, tile_N, tile_K,<br>
+    core_mask);<br>
+<br>
+<span class="c">/* Validate a packed instruction */</span><br>
+<span class="kw">int</span> <span class="fn">isa_validate_v2</span>(p); <span class="c">// 0=ok</span><br>
+<br>
+<span class="c">/* Upgrade v0.1 → v2.0 */</span><br>
+<span class="kw">void</span> <span class="fn">isa_upgrade_v1_to_v2</span>(dst, src_v1);
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;">Core Mask Helpers</div>
+    <div class="code">
+CORE_MASK_ALL           <span class="c">// 0x00FF — all 8 cores</span><br>
+CORE_MASK_CORE(n)       <span class="c">// (1u &lt;&lt; n) — single core n (0–7)</span><br>
+CORE_MASK_SINGLE        <span class="c">// 0x0001 — core 0 only (v0.1 default)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ EXAMPLES ═════════════════════════════════════════════════════════════ -->
+<section class="section" id="examples">
+  <div class="section-title">Encoding Examples</div>
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;">Example 1 — 256×256 BF16 MATMUL on all 8 cores</div>
+  <div class="code">
+isa_packet_v2_t pkt;<br>
+<span class="fn">isa_pack_v2_simple</span>(&amp;pkt, <span class="nm">OPC2_MATMUL_BF16</span>,<br>
+    dst_tile, src_a_tile, src_b_tile, <span class="nm">0xFF</span>,  <span class="c">// 0xFF = no acc</span><br>
+    <span class="nm">AUX2_DTYPE_BF16</span>,<br>
+    <span class="nm">256</span>, <span class="nm">256</span>, <span class="nm">256</span>,            <span class="c">// tile M, N, K</span><br>
+    <span class="nm">CORE_MASK_ALL</span>);
+  </div>
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;margin-top:20px;">Example 2 — Flash Attention, causal GQA, S=2048, D=128, H=32, 8 cores</div>
+  <div class="code">
+isa_packet_v2_t pkt;<br>
+<span class="fn">isa_pack_v2</span>(&amp;pkt,<br>
+    <span class="nm">OPC2_FLASH_ATTN</span>,<br>
+    out_tile, q_tile, k_tile, v_tile,<br>
+    <span class="nm">0x0000</span>,        <span class="c">// scalar_imm (sqrt(D) handled internally)</span><br>
+    <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,       <span class="c">// host_addr, sram_addr, byte_count (unused)</span><br>
+    <span class="nm">AUX2_ATTN_CAUSAL</span> | <span class="nm">AUX2_ATTN_GQA</span>,<br>
+    <span class="nm">2048</span>,            <span class="c">// tile_M = S (sequence length)</span><br>
+    <span class="nm">128</span>,             <span class="c">// tile_N = D (head dimension)</span><br>
+    <span class="nm">32</span>,              <span class="c">// tile_K = H (query heads)</span><br>
+    <span class="nm">32</span>,              <span class="c">// head_count</span><br>
+    <span class="nm">CORE_MASK_ALL</span>);
+  </div>
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;margin-top:20px;">Example 3 — DMA_LOAD 4 MB from host to SRAM</div>
+  <div class="code">
+isa_packet_v2_t pkt;<br>
+<span class="fn">isa_pack_v2</span>(&amp;pkt,<br>
+    <span class="nm">OPC2_DMA_LOAD</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,<br>
+    <span class="nm">0</span>,<br>
+    <span class="nm">0x10000000u</span>,   <span class="c">// host_addr (32-bit)</span><br>
+    <span class="nm">0x00000000u</span>,   <span class="c">// sram_addr</span><br>
+    <span class="nm">4u * 1024u * 1024u</span>,  <span class="c">// byte_count = 4 MB</span><br>
+    <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,<br>
+    <span class="nm">CORE_MASK_SINGLE</span>);
+  </div>
+
+  <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600;margin-top:20px;">Example 4 — Loop: 32 iterations of a tiled matmul</div>
+  <div class="code">
+<span class="c">// LOOP_BEGIN count=32</span><br>
+<span class="fn">isa_pack_v2_simple</span>(&amp;loop_begin, <span class="nm">OPC2_LOOP_BEGIN</span>,<br>
+    <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,<br>
+    <span class="nm">32</span>, <span class="nm">0</span>, <span class="nm">0</span>,   <span class="c">// tile_M = count</span><br>
+    <span class="nm">CORE_MASK_SINGLE</span>);<br>
+<br>
+<span class="c">// ... MATMUL instructions ...</span><br>
+<br>
+<span class="c">// LOOP_END</span><br>
+<span class="fn">isa_pack_v2_simple</span>(&amp;loop_end, <span class="nm">OPC2_LOOP_END</span>,<br>
+    <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,<br>
+    <span class="nm">0</span>, <span class="nm">0</span>, <span class="nm">0</span>,<br>
+    <span class="nm">CORE_MASK_SINGLE</span>);
+  </div>
+</section>
+
+<!-- ═══ CHIP SHOWCASE ════════════════════════════════════════════════════════ -->
+<div class="chip-showcase">
+  <div style="position:relative;flex-shrink:0;">
+    <div class="chip-corner tl" style="animation-delay:0s"></div>
+    <div class="chip-corner tr" style="animation-delay:0.5s"></div>
+    <div class="chip-corner bl" style="animation-delay:1.0s"></div>
+    <div class="chip-corner br" style="animation-delay:1.5s"></div>
+    <div class="chip-scan"></div>
+    <img src="satincore2.jpg">
+    </div>
+  <div class="chip-showcase-text">
+    <div class="chip-tag">SILICON READY</div>
+    <h3>SATIN Core S1 &mdash; <span>Tapeout</span></h3>
+    <p>The first custom AI accelerator chip from SATIN Core, built from the ground up to run transformer workloads with maximum efficiency. Featuring a 256-bit instruction word, 8-core systolic array, and native Flash Attention support.</p>
+    <p>Designed with a fully custom ISA (v3.0), 64 opcodes, and full backward compatibility with v0.1 programs — the S1 is engineered for production AI inference and training at scale.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;">
+      <span style="background:rgba(63,185,80,0.12);color:var(--green);border:1px solid rgba(63,185,80,0.25);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">8-Core Systolic Array</span>
+      <span style="background:rgba(88,166,255,0.12);color:var(--blue);border:1px solid rgba(88,166,255,0.25);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">ISA v3.0 — 68 Opcodes</span>
+      <span style="background:rgba(240,136,62,0.12);color:var(--orange);border:1px solid rgba(240,136,62,0.25);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">Fused Kernels 0x65–0x68</span>
+      <span style="background:rgba(210,168,255,0.12);color:var(--purple);border:1px solid rgba(210,168,255,0.25);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">CLU Patent Filed ✓</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COMPATIBILITY ════════════════════════════════════════════════════════ -->
+<section class="section" id="compat">
+  <div class="section-title">v0.1 → v2.0 Compatibility</div>
+  <div class="section-desc">ISA v2.0 is fully backward compatible with v0.1 programs.</div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Field</th><th>v0.1</th><th>v2.0</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="fname">Instruction width</td><td>128 bits (16 bytes)</td><td>256 bits (32 bytes)</td><td>Lower 16 bytes zero in v0.1 programs</td></tr>
+        <tr><td class="fname">host_addr</td><td>16-bit</td><td>32-bit</td><td>Zero-extended. Max 4 GB addressable.</td></tr>
+        <tr><td class="fname">sram_addr</td><td>16-bit</td><td>32-bit</td><td>Zero-extended.</td></tr>
+        <tr><td class="fname">byte_count</td><td>16-bit</td><td>32-bit</td><td>Split across bytes [15] and [16:18]. Use macros.</td></tr>
+        <tr><td class="fname">tile registers</td><td>0–31 (5-bit)</td><td>0–255 (8-bit)</td><td>v0.1 programs use IDs 0–31 only.</td></tr>
+        <tr><td class="fname">core_mask</td><td>N/A</td><td>0x0001 default</td><td>v0.1 ops run on core 0 only when upgraded.</td></tr>
+        <tr><td class="fname">tile_M/N/K</td><td>N/A</td><td>256 default</td><td>isa_upgrade_v1_to_v2() sets SATIN_DEFAULT_TILE_* = 256.</td></tr>
+        <tr><td class="fname">Opcode values</td><td>0x00–0x20, 0xFE, 0xFF</td><td>Same + 0x30–0x43</td><td>No re-use of existing opcode numbers.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="infobox ok" style="margin-top:16px;">
+    <b>Upgrade flow:</b> Call <code>isa_upgrade_v1_to_v2(dst, src_v1_raw)</code> for each 16-byte v0.1 instruction.
+    The output is a valid 32-byte v2.0 packet that runs on Gen 3 hardware identically to the original v0.1 program.
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<footer>
+  SATIN Core S1 &mdash; ISA v3.0 FINAL &nbsp;|&nbsp; Generated from isa_packet_v2.h &nbsp;|&nbsp; Licensed under CC-BY 4.0 &nbsp;|&nbsp; &copy; 2026 SATIN Technologies
+</footer>
+
+<script>
+  // Active nav on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav a');
+  window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + cur);
+    });
+  });
+</script>
+</body>
+</html>
